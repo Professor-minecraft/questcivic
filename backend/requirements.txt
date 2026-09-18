@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic-settings
+pandas
+pyotp
+PyJWT
+bcrypt
+python-multipart
+Pillow
+httpx
+rapidfuzz
+shapely
+pytest
