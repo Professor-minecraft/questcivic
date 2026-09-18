@@ -140,8 +140,59 @@ def test_complete_verification_flow(client, db):
     )
     assert auditor_img_res.status_code == 200
 
+    # 8. Reject another photo, retake, and upload again
+    if len(works_data["items"]) > 1:
+        target_work_2 = works_data["items"][1]
+        work_id_2 = target_work_2["id"]
+
+        # Upload photo for work 2
+        img2 = Image.new("RGB", (100, 100), color=(200, 50, 50))
+        buf2 = io.BytesIO()
+        img2.save(buf2, format="JPEG")
+        files2 = {"photo": ("mplads_photo_2.jpg", buf2.getvalue(), "image/jpeg")}
+        upload_res_2 = client.post(
+            f"/works/{work_id_2}/submissions",
+            headers=user_headers,
+            files=files2,
+        )
+        assert upload_res_2.status_code == 200
+        submission_2 = upload_res_2.json()
+        sub_2_id = submission_2["id"]
+
+        # Auditor rejects it with reason
+        reject_res = client.post(
+            f"/auditor/submissions/{sub_2_id}/reject",
+            headers=auditor_headers,
+            json={"reason": "Plaque is blurry and unreadable"},
+        )
+        assert reject_res.status_code == 200
+        assert reject_res.json()["status"] == "rejected"
+
+        # User XP remains 150
+        me_res_reject = client.get("/me", headers=user_headers)
+        assert me_res_reject.json()["xp"] == 150
+
+        # User retakes and uploads again (must succeed because previous is rejected)
+        img2_retake = Image.new("RGB", (100, 100), color=(50, 200, 50))
+        buf2_retake = io.BytesIO()
+        img2_retake.save(buf2_retake, format="JPEG")
+        files2_retake = {"photo": ("mplads_retake.jpg", buf2_retake.getvalue(), "image/jpeg")}
+        retake_res = client.post(
+            f"/works/{work_id_2}/submissions",
+            headers=user_headers,
+            files=files2_retake,
+        )
+        assert retake_res.status_code == 200
+        assert retake_res.json()["status"] == "pending"
+
+        # Clean up submission 2 image
+        disk_path_2 = Path(__file__).resolve().parent.parent / retake_res.json()["image_path"]
+        if disk_path_2.is_file():
+            disk_path_2.unlink()
+
     # Clean up uploaded image file
     image_rel_path = submission["image_path"]
     disk_path = Path(__file__).resolve().parent.parent / image_rel_path
     if disk_path.is_file():
         disk_path.unlink()
+
