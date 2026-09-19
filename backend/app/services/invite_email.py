@@ -1,8 +1,8 @@
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
+import logging
 from app.config import settings
+from app.services.email_sender import send_email
+
+logger = logging.getLogger(__name__)
 
 
 def send_invite_email(email: str, token: str) -> bool:
@@ -12,18 +12,18 @@ def send_invite_email(email: str, token: str) -> bool:
     """
     link = f"{settings.frontend_base_url}/auditor/set-password?token={token}"
 
-    # If SMTP_USER is empty, print to server console (dev mode)
-    if not settings.SMTP_USER:
+    # If in dev mode with SMTP and no SMTP_USER, print to server console
+    if (settings.EMAIL_BACKEND.lower() == "smtp" and not settings.SMTP_USER) or (
+        settings.EMAIL_BACKEND.lower() in ("brevo", "resend")
+        and not settings.EMAIL_API_KEY
+        and settings.ENVIRONMENT.lower() == "development"
+    ):
         print("\n" + "=" * 50)
         print(f"[DEV MODE] Auditor invite link for {email}: {link}")
         print("=" * 50 + "\n", flush=True)
         return True
 
-    msg = MIMEMultipart()
-    msg["From"] = settings.SMTP_USER
-    msg["To"] = email
-    msg["Subject"] = "CivicQuest auditor account: set your password"
-
+    subject = "CivicQuest auditor account: set your password"
     body = (
         f"Hello,\n\n"
         f"You have been invited as an auditor for CivicQuest.\n"
@@ -32,14 +32,10 @@ def send_invite_email(email: str, token: str) -> bool:
         f"This link expires in {settings.INVITE_EXPIRE_HOURS} hours.\n\n"
         f"Thank you!"
     )
-    msg.attach(MIMEText(body, "plain"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
+        send_email(email, subject, body)
         return True
     except Exception as e:
-        print(f"[ERROR] Failed to send auditor invite email to {email}: {e}", flush=True)
+        logger.error(f"[ERROR] Failed to send auditor invite email to {email}: {e}")
         return False

@@ -134,12 +134,17 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
         expires_at=expires_at,
     )
     db.add(otp_req)
-    db.commit()
-
+ 
     # 5) Only if a verified user with this email exists: send email
     user = db.query(User).filter(User.email == email, User.email_verified == 1).first()
     if user:
-        send_password_reset_email(email, code)
+        try:
+            send_password_reset_email(email, code)
+        except Exception:
+            db.rollback()
+            raise
+
+    db.commit()
 
     # 6) Response is always 200 with remaining count, same for registered and unknown
     remaining = max(0, settings.RESET_REQUESTS_PER_DAY - (len(email_requests_24h) + 1))

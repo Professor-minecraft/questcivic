@@ -190,10 +190,15 @@ def signup(req: SignupRequest, request: Request, db: Session = Depends(get_db)):
         expires_at=expires_at,
     )
     db.add(otp_req)
-    db.commit()
 
-    # 8. Send OTP email (or print in dev mode)
-    send_otp(email, code)
+    # 8. Send OTP email before committing (rollback on failure)
+    try:
+        send_otp(email, code)
+    except Exception:
+        db.rollback()
+        raise
+
+    db.commit()
 
     return {"message": "OTP sent"}
 
@@ -232,9 +237,14 @@ def resend_otp(req: ResendOTPRequest, request: Request, db: Session = Depends(ge
         expires_at=expires_at,
     )
     db.add(otp_req)
-    db.commit()
 
-    send_otp(email, code)
+    try:
+        send_otp(email, code)
+    except Exception:
+        db.rollback()
+        raise
+
+    db.commit()
 
     return {"message": "OTP sent"}
 

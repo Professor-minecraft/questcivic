@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
+    EMAIL_BACKEND: str = "smtp"
+    EMAIL_API_KEY: str = ""
+    EMAIL_FROM_ADDRESS: str = ""
+    EMAIL_FROM_NAME: str = "CivicQuest"
     ALLOWED_EMAIL_DOMAIN: str = "gmail.com"
     XP_PER_APPROVAL: int = 150
     XP_PER_COMPLAINT: int = 50
@@ -78,6 +82,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_safeguards(self):
+        backend = self.EMAIL_BACKEND.lower()
+        if backend not in ("smtp", "brevo", "resend"):
+            raise ValueError(
+                f"Invalid EMAIL_BACKEND '{self.EMAIL_BACKEND}'. Must be 'smtp', 'brevo', or 'resend'."
+            )
         if self.ENVIRONMENT.lower() == "production":
             # Force BUILTIN_AUDITOR_ENABLED off unless it is explicitly set to True
             if "BUILTIN_AUDITOR_ENABLED" not in self.model_fields_set or not self.BUILTIN_AUDITOR_ENABLED:
@@ -126,6 +135,19 @@ class Settings(BaseSettings):
                 if missing:
                     raise ValueError(
                         f"In production with STORAGE_BACKEND=s3, the following S3 variables must be set: {', '.join(missing)}"
+                    )
+
+            # Validate Email backend in production
+            backend = self.EMAIL_BACKEND.lower()
+            if backend in ("brevo", "resend"):
+                missing_email = []
+                for field in ("EMAIL_API_KEY", "EMAIL_FROM_ADDRESS"):
+                    val = getattr(self, field, "")
+                    if not val or "CHANGE_ME" in val:
+                        missing_email.append(field)
+                if missing_email:
+                    raise ValueError(
+                        f"In production with EMAIL_BACKEND={self.EMAIL_BACKEND}, the following variables must be set: {', '.join(missing_email)}"
                     )
         return self
 
