@@ -10,7 +10,7 @@ def send_invite_email(email: str, token: str) -> bool:
     Send an invitation email to the auditor with a link to set their password.
     Returns True if sent (or printed in dev mode), False if sending fails.
     """
-    link = f"{settings.FRONTEND_ORIGIN}/auditor/set-password?token={token}"
+    link = f"{settings.frontend_base_url}/auditor/set-password?token={token}"
 
     # If SMTP_USER is empty, print to server console (dev mode)
     if not settings.SMTP_USER:

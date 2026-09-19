@@ -12,3 +12,4 @@ httpx
 rapidfuzz
 shapely
 pytest
+psycopg2-binary

@@ -1,0 +1,32 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Uploaded and backed up data
+uploads/
+backups/
+
+# SQLite databases and journals
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git metadata
+.git/
+.gitignore
