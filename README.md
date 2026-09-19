@@ -39,9 +39,9 @@
 
 | Citizen Experience | Auditor & Admin Experience |
 | :---: | :---: |
-| **Project Browser & Discovery**<br>![Works Browser](https://questcivic.vercel.app)<br>*Explore localized MPLADS projects* | **Auditor Review Portal**<br>![Auditor Dashboard](https://questcivic.vercel.app/auditor/login)<br>*Inspect photos in fullscreen & verify works* |
-| **Citizen Authentication & OTP**<br>![Citizen Login](https://questcivic.vercel.app)<br>*Password & TOTP verification* | **Administrative Operations**<br>![Admin Dashboard](https://questcivic.vercel.app/auditor/login)<br>*Auditor delegation & immutable audit logs* |
-| **Citizen Leaderboard**<br>![Leaderboard](https://questcivic.vercel.app)<br>*Rankings based on validated contributions* | **Citizen Profile & XP Tracking**<br>![Profile](https://questcivic.vercel.app/auditor/login)<br>*Verification history & civic status* |
+| **Project Browser & Discovery**<br>[Works Browser](https://questcivic.vercel.app)<br>*Explore localized MPLADS projects* | **Auditor Review Portal**<br>[Auditor Dashboard](https://questcivic.vercel.app/auditor/login)<br>*Inspect photos in fullscreen & verify works* |
+| **Citizen Authentication & OTP**<br>[Citizen Login](https://questcivic.vercel.app)<br>*Password & TOTP verification* | **Administrative Operations**<br>[Admin Dashboard](https://questcivic.vercel.app/auditor/login)<br>*Auditor delegation & immutable audit logs* |
+| **Citizen Leaderboard**<br>[Leaderboard](https://questcivic.vercel.app)<br>*Rankings based on validated contributions* | **Citizen Profile & XP Tracking**<br>[Profile](https://questcivic.vercel.app/auditor/login)<br>*Verification history & civic status* |
 
 > Visual guides and expected screenshot formats are documented in [docs/screenshots/README.md](docs/screenshots/README.md).
 
