@@ -8,10 +8,14 @@ export default function AuditorLogin() {
   const navigate = useNavigate();
   const { login, token, role } = useAuth();
 
-  // If already logged in as auditor, navigate to /auditor
+  // If already logged in as auditor or admin, navigate to appropriate dashboard
   useEffect(() => {
-    if (token && role === 'auditor') {
-      navigate('/auditor', { replace: true });
+    if (token) {
+      if (role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (role === 'auditor') {
+        navigate('/auditor', { replace: true });
+      }
     }
   }, [token, role, navigate]);
 
@@ -27,59 +31,60 @@ export default function AuditorLogin() {
 
     const trimmedUsername = username.trim();
     if (!trimmedUsername || !password) {
-      setError('Please enter both username and password.');
+      setError('Please enter both ID or Gmail and password.');
       return;
     }
 
     try {
       setLoading(true);
-      const res = await api.post('/auth/auditor-login', {
+      const res = await api.post('/auth/staff-login', {
         username: trimmedUsername,
         password: password,
       });
 
-      // Save token and role
-      login(res.data.access_token, 'auditor', null);
+      const { access_token, role: staffRole } = res.data;
 
-      // Navigate to auditor dashboard
-      navigate('/auditor');
+      // Save token and role
+      login(access_token, staffRole, null);
+
+      // Navigate to auditor or admin dashboard
+      if (staffRole === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/auditor');
+      }
     } catch (err) {
-      const msg =
-        err.response?.data?.detail ||
-        'Invalid auditor username or password. Please try again.';
-      setError(msg);
+      if (err.response?.status === 401) {
+        setError('Invalid ID or password');
+      } else if (err.response?.status === 403) {
+        setError(err.response?.data?.detail || 'This account is disabled. Contact the admin.');
+      } else if (err.response?.status === 429) {
+        setError('Too many attempts. Try again in 15 minutes.');
+      } else {
+        setError(err.response?.data?.detail || 'Invalid credentials or network error.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 text-blue-400 shadow-xl mb-4">
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-            />
-          </svg>
-        </div>
+    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 px-4">
+      <div className="mx-auto w-full max-w-md text-center">
+        <img
+          src="/civicquest-logo.svg"
+          alt="CivicQuest"
+          className="mx-auto max-w-[260px] sm:max-w-[320px] w-full h-auto mb-4"
+        />
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-          Auditor Portal
+          Auditor / Admin login
         </h1>
         <p className="mt-2 text-sm text-slate-400">
-          Administrative sign-in for MPLADS photo verification
+          Administrative sign-in for auditors and system administrators
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="mt-8 mx-auto w-full max-w-md">
         <div className="bg-slate-800/90 backdrop-blur-xs py-8 px-6 shadow-2xl border border-slate-700/60 rounded-2xl sm:px-10">
           {error && (
             <div className="mb-6 p-3.5 rounded-xl bg-red-950/70 border border-red-800 text-sm text-red-200 flex items-start space-x-2">
@@ -104,7 +109,7 @@ export default function AuditorLogin() {
                 htmlFor="username-input"
                 className="block text-sm font-semibold text-slate-200 mb-1.5"
               >
-                Auditor Username
+                ID or Gmail
               </label>
               <input
                 id="username-input"
@@ -113,7 +118,7 @@ export default function AuditorLogin() {
                 autoFocus
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter auditor ID"
+                placeholder="Enter ID or Gmail"
                 autoComplete="username"
                 className="w-full px-4 py-3 min-h-[44px] text-base rounded-xl border border-slate-600 bg-slate-900/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
               />

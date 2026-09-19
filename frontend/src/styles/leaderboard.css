@@ -1,0 +1,212 @@
+/* Leaderboard Custom Styling - all classes prefixed with lb- */
+
+/* Rank 1: Diamond Style Row */
+.lb-shine-diamond {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.75) 0 12%, transparent 12% 30%, rgba(160, 220, 255, 0.35) 30% 44%, transparent 44% 62%, rgba(200, 180, 255, 0.30) 62% 78%, transparent 78% 100%),
+    linear-gradient(135deg, #ffffff 0%, #d9f4ff 25%, #b8e6ff 45%, #e9e2ff 60%, #ffffff 75%, #c8f0ff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 14px rgba(120, 220, 255, 0.6);
+  color: #0b2545;
+}
+
+/* ::after light sweep: diagonal white band */
+.lb-shine-diamond::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.9) 50%, transparent 70%);
+  pointer-events: none;
+  animation: lb-diamond-sweep 2.2s linear infinite;
+  will-change: transform;
+  z-index: 0;
+}
+
+/* ::before prism band: rainbow tints */
+.lb-shine-diamond::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 120, 200, 0.25) 42%, rgba(120, 220, 255, 0.35) 50%, rgba(255, 240, 150, 0.25) 58%, transparent 65%);
+  pointer-events: none;
+  animation: lb-diamond-prism 3.6s linear infinite;
+  animation-delay: -1.4s;
+  will-change: transform;
+  z-index: 0;
+}
+
+@keyframes lb-diamond-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes lb-diamond-prism {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* Sparkles */
+.lb-sparkle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.9) 0, transparent 60%),
+    linear-gradient(90deg, transparent, #fff, transparent) center / 100% 2px no-repeat,
+    linear-gradient(0deg, transparent, #fff, transparent) center / 2px 100% no-repeat;
+  will-change: transform, opacity;
+}
+
+@keyframes lb-sparkle-pop {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1) rotate(45deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+.lb-sparkle-1 {
+  animation: lb-sparkle-pop 1.8s ease-in-out infinite -0.4s;
+}
+
+.lb-sparkle-2 {
+  animation: lb-sparkle-pop 2.2s ease-in-out infinite -1.1s;
+}
+
+.lb-sparkle-3 {
+  animation: lb-sparkle-pop 2.5s ease-in-out infinite -0.7s;
+}
+
+.lb-sparkle-4 {
+  animation: lb-sparkle-pop 1.9s ease-in-out infinite -1.5s;
+}
+
+.lb-sparkle-5 {
+  animation: lb-sparkle-pop 2.4s ease-in-out infinite -0.2s;
+}
+
+.lb-sparkle-6 {
+  animation: lb-sparkle-pop 2.1s ease-in-out infinite -1.8s;
+}
+
+/* Diamond Rank Badge for Rank 1 */
+.lb-rank-diamond {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  background: linear-gradient(135deg, #ffffff, #8fdcff, #5aa9ff);
+  color: #0b2545;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Rank 2: Silver Metallic */
+.lb-row-silver {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f3f4f6 0%, #d1d5db 50%, #9ca3af 100%);
+  color: #111827;
+  border: 1px solid #9ca3af;
+  box-shadow: 0 0 14px rgba(209, 213, 219, 0.55);
+}
+
+.lb-row-silver::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.65) 50%, transparent 70%);
+  pointer-events: none;
+  animation: lb-shine 2.6s linear infinite;
+  animation-delay: -0.5s;
+  will-change: transform;
+}
+
+/* Rank 3: Bronze Metallic */
+.lb-row-bronze {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #fcd9b6 0%, #d08a4d 50%, #a0522d 100%);
+  color: #1c1917;
+  border: 1px solid #d08a4d;
+  box-shadow: 0 0 14px rgba(208, 138, 77, 0.5);
+}
+
+.lb-row-bronze::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.65) 50%, transparent 70%);
+  pointer-events: none;
+  animation: lb-shine 3.2s linear infinite;
+  animation-delay: -1.7s;
+  will-change: transform;
+}
+
+/* "You" highlight enhancement when combined with effect rows */
+.lb-row-you {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Light band sweep for Silver & Bronze */
+@keyframes lb-shine {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* Accessibility: Prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .lb-shine-diamond::after,
+  .lb-shine-diamond::before {
+    animation: none !important;
+    display: none !important;
+  }
+  .lb-sparkle {
+    animation: none !important;
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  .lb-row-silver::after,
+  .lb-row-bronze::after {
+    animation: none !important;
+    display: none !important;
+  }
+}

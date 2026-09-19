@@ -2,9 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   color-scheme: light;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 body {
@@ -12,4 +22,44 @@ body {
   min-height: 100vh;
   background-color: #f8fafc;
   color: #0f172a;
+  overflow-x: hidden;
+  /* Support safe-area insets for notched phones */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Gold Glow Animation for High XP Profile (>= 1000 XP) */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px 2px rgba(250, 204, 21, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 24px 8px rgba(250, 204, 21, 0.9);
+  }
+}
+
+.glow-card {
+  border-color: #facc15 !important;
+  box-shadow: 0 0 8px 2px rgba(250, 204, 21, 0.6);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.glow-avatar {
+  border: 3px solid #facc15 !important;
+  box-shadow: 0 0 8px 2px rgba(250, 204, 21, 0.6);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-card,
+  .glow-avatar {
+    animation: none !important;
+    box-shadow: 0 0 12px 3px rgba(250, 204, 21, 0.7) !important;
+  }
 }

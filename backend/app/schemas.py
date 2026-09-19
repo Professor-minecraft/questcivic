@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LocationOptionsResponse(BaseModel):
@@ -137,3 +137,110 @@ class AuditorSubmissionItem(BaseModel):
 
 class RejectSubmissionRequest(BaseModel):
     reason: str
+
+
+class UserStatsResponse(BaseModel):
+    xp: int
+    approved: int
+    rejected: int
+    pending: int
+
+
+class UserSubmissionItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    submission_id: int
+    work_id: int
+    source: str
+    work_type: str
+    description: str
+    mp_name: Optional[str] = None
+    state: str
+    district: str
+    constituency: Optional[str] = None
+    amount: Optional[float] = None
+    completion_date: Optional[date] = None
+    status: str
+    reject_reason: Optional[str] = None
+    submitted_at: datetime
+    reviewed_at: Optional[datetime] = None
+    xp_earned: int = 0
+
+
+class UserSubmissionsResponse(BaseModel):
+    items: List[UserSubmissionItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class ComplaintResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    comment: str
+    status: str
+    state: str
+    district: str
+    constituency: Optional[str] = None
+    auditor_comment: Optional[str] = None
+    xp_awarded: int = 0
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+
+
+class ComplaintsListResponse(BaseModel):
+    items: List[ComplaintResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class AuditorComplaintItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    comment: str
+    status: str
+    auditor_comment: Optional[str] = None
+    xp_awarded: int = 0
+    state: str
+    district: str
+    constituency: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+    user_email: str
+
+
+class AuditorComplaintsListResponse(BaseModel):
+    items: List[AuditorComplaintItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class AuditorComplaintReviewRequest(BaseModel):
+    comment: str = Field(..., min_length=3, max_length=500)
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard
+# ---------------------------------------------------------------------------
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    name: str          # masked: first 2 letters + "***"
+    xp: int
+    is_me: bool
+
+
+class LeaderboardMe(BaseModel):
+    rank: Optional[int] = None   # null if the user's xp is 0
+    xp: int
+
+
+class LeaderboardResponse(BaseModel):
+    items: List[LeaderboardEntry]
+    me: LeaderboardMe

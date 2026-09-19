@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Loader from '../components/Loader';
+import AuditorComplaintCard from '../components/AuditorComplaintCard';
+import PhotoViewer from '../components/PhotoViewer';
 
 // Component to load protected image via Bearer token and display as a blob URL
 function AuthenticatedImage({ submissionId, alt }) {
   const [src, setSrc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -63,11 +66,38 @@ function AuthenticatedImage({ submissionId, alt }) {
   }
 
   return (
-    <img
-      src={src}
-      alt={alt || 'Verification Submission Photo'}
-      className="w-full h-56 object-cover rounded-xl bg-slate-100"
-    />
+    <>
+      <button
+        type="button"
+        onClick={() => setIsViewerOpen(true)}
+        className="relative block w-full rounded-xl overflow-hidden cursor-zoom-in group focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+        aria-label="View photo fullscreen"
+      >
+        <img
+          src={src}
+          alt={alt || 'Verification Submission Photo'}
+          className="w-full h-56 object-cover rounded-xl bg-slate-100"
+        />
+        <div
+          className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 text-white/90 shadow pointer-events-none group-hover:bg-black/80 transition-colors"
+          aria-hidden="true"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+        </div>
+      </button>
+
+      {isViewerOpen && (
+        <PhotoViewer
+          src={src}
+          filename={`civicquest-work-${submissionId}`}
+          title={`Work photo #${submissionId}`}
+          alt={alt || `Work photo #${submissionId}`}
+          onClose={() => setIsViewerOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -75,12 +105,22 @@ export default function AuditorDashboard() {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
+  const [viewMode, setViewMode] = useState('photos'); // 'photos' | 'complaints'
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'approved' | 'rejected'
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toastMessage, setToastMessage] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState(null);
+
+  // Complaints State
+  const [complaintsTab, setComplaintsTab] = useState('pending'); // 'pending' | 'accepted' | 'rejected'
+  const [complaints, setComplaints] = useState([]);
+  const [complaintsTotal, setComplaintsTotal] = useState(0);
+  const [complaintsPage, setComplaintsPage] = useState(1);
+  const [complaintsLoading, setComplaintsLoading] = useState(false);
+  const [complaintsLoadingMore, setComplaintsLoadingMore] = useState(false);
+  const [complaintsError, setComplaintsError] = useState('');
 
   // Reject modal state
   const [rejectModal, setRejectModal] = useState({
@@ -216,6 +256,62 @@ export default function AuditorDashboard() {
     }
   };
 
+  // Fetch complaints by status tab and page
+  const fetchComplaints = useCallback(async (status, targetPage = 1, append = false) => {
+    try {
+      if (append) {
+        setComplaintsLoadingMore(true);
+      } else {
+        setComplaintsLoading(true);
+      }
+      setComplaintsError('');
+      const res = await api.get('/auditor/complaints', {
+        params: {
+          status,
+          page: targetPage,
+          page_size: 20,
+        },
+      });
+      const data = res.data;
+      setComplaintsTotal(data.total || 0);
+      setComplaintsPage(targetPage);
+      if (append) {
+        setComplaints((prev) => [...prev, ...(data.items || [])]);
+      } else {
+        setComplaints(data.items || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch auditor complaints:', err);
+      const msg = err.response?.data?.detail || 'Failed to load complaints. Please try again.';
+      setComplaintsError(msg);
+    } finally {
+      setComplaintsLoading(false);
+      setComplaintsLoadingMore(false);
+    }
+  }, []);
+
+  // Fetch complaints when viewMode is 'complaints' or complaintsTab changes
+  useEffect(() => {
+    if (viewMode === 'complaints') {
+      fetchComplaints(complaintsTab, 1, false);
+    }
+  }, [viewMode, complaintsTab, fetchComplaints]);
+
+  // Handle action success on a complaint
+  const handleComplaintActionSuccess = (complaintId, actionType) => {
+    setComplaints((prev) => prev.filter((c) => c.id !== complaintId));
+    setComplaintsTotal((prev) => Math.max(0, prev - 1));
+    setToastMessage(
+      actionType === 'accept' ? 'Complaint accepted, 50 XP given' : 'Complaint rejected'
+    );
+  };
+
+  const handleLoadMoreComplaints = () => {
+    const nextPage = complaintsPage + 1;
+    fetchComplaints(complaintsTab, nextPage, true);
+  };
+  const hasMoreComplaints = complaints.length < complaintsTotal;
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
       {/* Toast Notification */}
@@ -276,8 +372,44 @@ export default function AuditorDashboard() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Navigation Tabs: Pending, Approved, Rejected */}
-        <div className="flex items-center space-x-2 border-b border-slate-700 pb-3 mb-6 overflow-x-auto">
+        {/* Top Switch: Photo checks (default) vs Complaints */}
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-4 border-b border-slate-800 pb-4">
+          <div className="p-1 bg-slate-800 rounded-xl border border-slate-700 inline-flex shadow-inner">
+            <button
+              type="button"
+              onClick={() => setViewMode('photos')}
+              className={`min-h-[44px] px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer flex items-center space-x-2 ${
+                viewMode === 'photos'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>Photo checks</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('complaints')}
+              className={`min-h-[44px] px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer flex items-center space-x-2 ${
+                viewMode === 'complaints'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>Complaints</span>
+            </button>
+          </div>
+        </div>
+
+        {viewMode === 'photos' ? (
+          <>
+            {/* Navigation Tabs: Pending, Approved, Rejected */}
+            <div className="flex items-center space-x-2 border-b border-slate-700 pb-3 mb-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab('pending')}
             className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center space-x-2 shrink-0 ${
@@ -398,7 +530,7 @@ export default function AuditorDashboard() {
                     <span className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider block">
                       Citizen Submitter
                     </span>
-                    <span className="text-sm font-semibold text-blue-400 truncate block">
+                    <span className="text-sm font-semibold text-blue-400 break-words block">
                       {item.user_email}
                     </span>
                   </div>
@@ -478,6 +610,144 @@ export default function AuditorDashboard() {
                 )}
               </div>
             ))}
+          </div>
+        )}
+          </>
+        ) : (
+          <div>
+            {/* Complaints Navigation Tabs: Pending, Accepted, Rejected */}
+            <div className="flex items-center space-x-2 border-b border-slate-700 pb-3 mb-6 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setComplaintsTab('pending')}
+                className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center space-x-2 shrink-0 ${
+                  complaintsTab === 'pending'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <span>Pending Review</span>
+                {complaintsTab === 'pending' && complaints.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-blue-700 text-white font-bold">
+                    {complaintsTotal}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setComplaintsTab('accepted')}
+                className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center space-x-2 shrink-0 ${
+                  complaintsTab === 'accepted'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <span>Accepted</span>
+                {complaintsTab === 'accepted' && complaints.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-700 text-white font-bold">
+                    {complaintsTotal}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setComplaintsTab('rejected')}
+                className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center space-x-2 shrink-0 ${
+                  complaintsTab === 'rejected'
+                    ? 'bg-red-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                <span>Rejected</span>
+                {complaintsTab === 'rejected' && complaints.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-red-700 text-white font-bold">
+                    {complaintsTotal}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Complaints Error Alert */}
+            {complaintsError && (
+              <div className="mb-6 p-4 rounded-xl bg-red-950/70 border border-red-800 text-sm text-red-200 flex items-start space-x-2">
+                <svg className="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <span>{complaintsError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fetchComplaints(complaintsTab, 1, false)}
+                  className="px-2.5 py-1 bg-red-900 hover:bg-red-800 text-white text-xs font-semibold rounded-md cursor-pointer transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Complaints Loading State */}
+            {complaintsLoading ? (
+              <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                <Loader size="lg" />
+                <p className="text-sm font-medium text-slate-400">Loading {complaintsTab} complaints...</p>
+              </div>
+            ) : complaints.length === 0 ? (
+              <div className="bg-slate-800/60 rounded-2xl border border-slate-700/60 p-12 text-center max-w-md mx-auto my-12">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-700/50 text-slate-400 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-1">
+                  {complaintsTab === 'pending'
+                    ? 'No pending complaints.'
+                    : complaintsTab === 'accepted'
+                    ? 'No accepted complaints.'
+                    : 'No rejected complaints.'}
+                </h3>
+                <p className="text-sm text-slate-400">
+                  {complaintsTab === 'pending'
+                    ? 'All submitted citizen complaints have been reviewed.'
+                    : `There are currently no complaints in ${complaintsTab} status.`}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {complaints.map((item) => (
+                    <AuditorComplaintCard
+                      key={item.id}
+                      item={item}
+                      activeTab={complaintsTab}
+                      onActionSuccess={handleComplaintActionSuccess}
+                    />
+                  ))}
+                </div>
+
+                {hasMoreComplaints && (
+                  <div className="pt-4 pb-8 text-center">
+                    <button
+                      type="button"
+                      onClick={handleLoadMoreComplaints}
+                      disabled={complaintsLoadingMore}
+                      className="min-h-[44px] inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-blue-400 bg-slate-800 border border-slate-700 hover:bg-slate-700/80 active:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer"
+                    >
+                      {complaintsLoadingMore ? (
+                        <span className="flex items-center space-x-2">
+                          <Loader size="sm" />
+                          <span>Loading more...</span>
+                        </span>
+                      ) : (
+                        <span>Load more ({complaints.length} of {complaintsTotal})</span>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </main>

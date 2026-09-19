@@ -1,15 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import axios from 'axios';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import WorkCard from '../components/WorkCard';
 import UploadButton from '../components/UploadButton';
 import Loader from '../components/Loader';
+import SourceToggle from '../components/SourceToggle';
+import ComplaintBox from '../components/ComplaintBox';
 
 export default function Works() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+
+  // Active source from URL query parameter, defaulting to 'LS'
+  const sourceParam = searchParams.get('source');
+  const source = sourceParam === 'RS' ? 'RS' : 'LS';
 
   const [works, setWorks] = useState([]);
   const [total, setTotal] = useState(0);
@@ -21,6 +29,23 @@ export default function Works() {
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+
+  const abortControllerRef = useRef(null);
+  const reqIdRef = useRef(0);
+
+  // Sync default ?source=LS to URL query if not present so a refresh preserves choice
+  useEffect(() => {
+    if (!searchParams.get('source')) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('source', 'LS');
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [searchParams, setSearchParams]);
 
   // Check if location is set; if not redirect to /location
   useEffect(() => {
@@ -39,9 +64,19 @@ export default function Works() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  // Fetch works from API
+  // Fetch works from API with AbortController and request sequencing
   const fetchWorks = useCallback(
-    async (targetPage, searchQuery, append = false) => {
+    async (targetPage, searchQuery, append = false, targetSource = source) => {
+      // Abort previous in-flight request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      reqIdRef.current += 1;
+      const currentReqId = reqIdRef.current;
+
       try {
         if (append) {
           setLoadingMore(true);
@@ -53,14 +88,23 @@ export default function Works() {
         const params = {
           page: targetPage,
           page_size: pageSize,
+          source: targetSource,
         };
         if (searchQuery) {
           params.search = searchQuery;
         }
 
-        const res = await api.get('/works', { params });
-        const data = res.data;
+        const res = await api.get('/works', {
+          params,
+          signal: controller.signal,
+        });
 
+        // Discard response if a newer request was dispatched
+        if (currentReqId !== reqIdRef.current) {
+          return;
+        }
+
+        const data = res.data;
         setTotal(data.total || 0);
         if (append) {
           setWorks((prev) => [...prev, ...(data.items || [])]);
@@ -68,6 +112,15 @@ export default function Works() {
           setWorks(data.items || []);
         }
       } catch (err) {
+        if (
+          axios.isCancel(err) ||
+          err.name === 'CanceledError' ||
+          err.name === 'AbortError' ||
+          currentReqId !== reqIdRef.current
+        ) {
+          return;
+        }
+
         if (err.response?.status === 400 && err.response?.data?.detail === 'Location not set') {
           navigate('/location');
           return;
@@ -77,23 +130,47 @@ export default function Works() {
           'Failed to load works. Please check your connection and try again.';
         setError(msg);
       } finally {
-        setLoadingInitial(false);
-        setLoadingMore(false);
+        if (currentReqId === reqIdRef.current) {
+          setLoadingInitial(false);
+          setLoadingMore(false);
+        }
       }
     },
-    [pageSize, navigate]
+    [pageSize, navigate, source]
   );
 
-  // Initial load or search query change
+  // Fetch works when source or search query changes
   useEffect(() => {
-    fetchWorks(1, search, false);
-  }, [fetchWorks, search]);
+    fetchWorks(1, search, false, source);
+  }, [fetchWorks, search, source]);
+
+  // Abort on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Handle switching legislative source (LS <-> RS)
+  const handleSourceChange = (newSource) => {
+    if (newSource === source) return;
+    setWorks([]);
+    setPage(1);
+    setLoadingInitial(true);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('source', newSource);
+      return next;
+    });
+  };
 
   // Load More handler
   const handleLoadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    fetchWorks(nextPage, search, true);
+    fetchWorks(nextPage, search, true, source);
   };
 
   // Handler when a verification photo upload succeeds
@@ -113,7 +190,9 @@ export default function Works() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <ComplaintBox />
+
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 sm:py-8 lg:pl-[360px] lg:pr-8 xl:pl-[400px] xl:pr-12">
         {/* Page Title & Location Context Banner */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
@@ -123,8 +202,8 @@ export default function Works() {
             <p className="mt-1 text-sm text-slate-600">
               Showing development projects verified and funded under MPLADS for{' '}
               <span className="font-semibold text-slate-800">
-                {user?.constituency ? `${user.constituency} Constituency` : user?.district},{' '}
-                {user?.state}
+                {source === 'LS' && user?.constituency ? `${user.constituency} Constituency, ` : ''}
+                {user?.district}, {user?.state}
               </span>
             </p>
           </div>
@@ -139,6 +218,11 @@ export default function Works() {
               </span>
             )}
           </div>
+        </div>
+
+        {/* Source Toggle: Under header, above search box */}
+        <div className="mb-6">
+          <SourceToggle value={source} onChange={handleSourceChange} />
         </div>
 
         {/* Search Bar */}
@@ -163,7 +247,7 @@ export default function Works() {
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search works by title or description..."
+              placeholder={`Search ${source === 'LS' ? 'Lok Sabha' : 'Rajya Sabha'} works by title or description...`}
               className="w-full pl-10 pr-10 py-3 min-h-[44px] text-sm sm:text-base rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all shadow-xs"
             />
             {searchInput && (
@@ -200,7 +284,7 @@ export default function Works() {
               <p className="mt-0.5">{error}</p>
             </div>
             <button
-              onClick={() => fetchWorks(page, search, false)}
+              onClick={() => fetchWorks(page, search, false, source)}
               className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-semibold rounded-md cursor-pointer transition-colors"
             >
               Retry
@@ -213,7 +297,7 @@ export default function Works() {
           <div className="py-20 flex flex-col items-center justify-center space-y-4">
             <Loader size="lg" />
             <p className="text-sm font-medium text-slate-500">
-              Loading projects for {user?.district || 'your area'}...
+              Loading {source === 'LS' ? 'Lok Sabha' : 'Rajya Sabha'} projects for {user?.district || 'your area'}...
             </p>
           </div>
         ) : works.length === 0 ? (
@@ -235,15 +319,18 @@ export default function Works() {
               </svg>
             </div>
             <h3 className="text-lg font-bold text-slate-900 mb-1">
-              {search ? 'No matching projects found' : 'No works found for this location'}
+              {source === 'LS'
+                ? 'No Lok Sabha works found for your constituency.'
+                : 'No Rajya Sabha works found for your district.'}
             </h3>
             <p className="text-sm text-slate-600 mb-6 max-w-sm mx-auto">
               {search
                 ? `We couldn't find any development works matching "${search}". Try searching with a different term.`
-                : 'There are no recorded MPLADS completed works in our dataset for the selected constituency or district.'}
+                : 'There are no recorded completed MPLADS works in our dataset for this location.'}
             </p>
             {search ? (
               <button
+                type="button"
                 onClick={() => setSearchInput('')}
                 className="min-h-[44px] px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
               >
@@ -251,6 +338,7 @@ export default function Works() {
               </button>
             ) : (
               <button
+                type="button"
                 onClick={() => navigate('/location?change=true')}
                 className="min-h-[44px] px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
               >
@@ -260,7 +348,7 @@ export default function Works() {
           </div>
         ) : (
           /* Works Cards List */
-          <div className="space-y-4">
+          <div id="works-list" className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
               {works.map((work) => (
                 <WorkCard

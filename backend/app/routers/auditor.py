@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import Submission, User, Work, XPLog
+from app.models import Auditor, ReviewLog, Submission, User, Work, XPLog
 from app.schemas import (
     AuditorSubmissionItem,
     AuditorSubmissionWorkDetails,
@@ -15,8 +15,44 @@ from app.schemas import (
     SubmissionResponse,
 )
 from app.security import require_auditor
+from app.services.normalize import normalize_place
 
 router = APIRouter(prefix="/auditor", tags=["auditor"])
+
+
+def _apply_submission_scope(query, auditor: dict, db: Session):
+    """
+    If the auditor token has an auditor_id (DB auditor), filter submissions
+    to only those whose state_norm and constituency_norm match the auditor's
+    assigned location.  Built-in auditor (no auditor_id) sees everything.
+    """
+    auditor_id = auditor.get("auditor_id")
+    if auditor_id is None:
+        return query  # built-in: no filter
+    auditor_row = db.query(Auditor).filter(Auditor.id == int(auditor_id)).first()
+    if not auditor_row:
+        return query
+    state_norm = normalize_place(auditor_row.state)
+    constituency_norm = normalize_place(auditor_row.constituency)
+    query = query.filter(
+        Submission.state_norm == state_norm,
+        Submission.constituency_norm == constituency_norm,
+    )
+    return query
+
+
+def _in_scope(sub: Submission, auditor: dict, db: Session) -> bool:
+    """Return True if the submission is within the auditor's scope."""
+    auditor_id = auditor.get("auditor_id")
+    if auditor_id is None:
+        return True  # built-in: all in scope
+    auditor_row = db.query(Auditor).filter(Auditor.id == int(auditor_id)).first()
+    if not auditor_row:
+        return True
+    return (
+        normalize_place(auditor_row.state) == sub.state_norm
+        and normalize_place(auditor_row.constituency) == sub.constituency_norm
+    )
 
 
 @router.get("/submissions", response_model=List[AuditorSubmissionItem])
@@ -28,6 +64,9 @@ def get_submissions(
     query = db.query(Submission)
     if status and status.strip():
         query = query.filter(Submission.status == status.strip().lower())
+
+    # Apply constituency scope for DB auditors
+    query = _apply_submission_scope(query, auditor, db)
 
     submissions = query.order_by(Submission.created_at.desc(), Submission.id.desc()).all()
 
@@ -77,7 +116,7 @@ def get_submission_image(
     db: Session = Depends(get_db),
 ):
     sub = db.query(Submission).filter(Submission.id == id).first()
-    if not sub:
+    if not sub or not _in_scope(sub, auditor, db):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Submission not found",
@@ -100,7 +139,7 @@ def approve_submission(
     db: Session = Depends(get_db),
 ):
     sub = db.query(Submission).filter(Submission.id == id).first()
-    if not sub:
+    if not sub or not _in_scope(sub, auditor, db):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Submission not found",
@@ -135,6 +174,16 @@ def approve_submission(
     )
     db.add(xp_entry)
 
+    # 4. Insert review_log row
+    review_entry = ReviewLog(
+        auditor_ref=str(auditor.get("sub", "")),
+        kind="submission",
+        target_id=sub.id,
+        decision="approved",
+        created_at=datetime.utcnow(),
+    )
+    db.add(review_entry)
+
     db.commit()
     db.refresh(sub)
     return sub
@@ -148,7 +197,7 @@ def reject_submission(
     db: Session = Depends(get_db),
 ):
     sub = db.query(Submission).filter(Submission.id == id).first()
-    if not sub:
+    if not sub or not _in_scope(sub, auditor, db):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Submission not found",
@@ -163,6 +212,16 @@ def reject_submission(
     sub.status = "rejected"
     sub.reject_reason = req.reason.strip()
     sub.reviewed_at = datetime.utcnow()
+
+    # Insert review_log row
+    review_entry = ReviewLog(
+        auditor_ref=str(auditor.get("sub", "")),
+        kind="submission",
+        target_id=sub.id,
+        decision="rejected",
+        created_at=datetime.utcnow(),
+    )
+    db.add(review_entry)
 
     db.commit()
     db.refresh(sub)

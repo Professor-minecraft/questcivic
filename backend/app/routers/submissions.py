@@ -13,6 +13,7 @@ from app.models import Submission, User, Work
 from app.schemas import SubmissionResponse
 from app.security import get_current_user
 from app.services.csv_loader import normalize_text
+from app.services.normalize import normalize_place
 
 router = APIRouter(tags=["submissions"])
 
@@ -126,12 +127,14 @@ async def create_submission(
 
     relative_path = f"uploads/{random_filename}"
 
-    # 8. Create submission record
+    # 8. Create submission record (with location snapshot)
     submission = Submission(
         user_id=current_user.id,
         work_id=work.id,
         image_path=relative_path,
         status="pending",
+        state_norm=normalize_place(current_user.state),
+        constituency_norm=normalize_place(current_user.constituency),
         lat=lat,
         lng=lng,
         created_at=datetime.utcnow(),

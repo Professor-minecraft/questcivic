@@ -24,13 +24,17 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       const role = localStorage.getItem('role');
-      const isAuditor = role === 'auditor' || window.location.pathname.startsWith('/auditor');
+      const isStaff =
+        role === 'auditor' ||
+        role === 'admin' ||
+        window.location.pathname.startsWith('/auditor') ||
+        window.location.pathname.startsWith('/admin');
 
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('user');
 
-      const redirectPath = isAuditor ? '/auditor/login' : '/login';
+      const redirectPath = isStaff ? '/auditor/login' : '/login';
       if (window.location.pathname !== redirectPath) {
         window.location.href = redirectPath;
       }

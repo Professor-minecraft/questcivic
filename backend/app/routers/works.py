@@ -17,6 +17,7 @@ def get_works(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -26,6 +27,13 @@ def get_works(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Location not set",
         )
+
+    if source is not None:
+        if source not in ("LS", "RS"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid source parameter. Must be 'LS' or 'RS'.",
+            )
 
     user_state_norm = normalize_text(current_user.state)
     user_district_norm = normalize_text(current_user.district)
@@ -46,7 +54,12 @@ def get_works(
         Work.district_norm == user_district_norm,
     )
 
-    query = db.query(Work).filter(or_(ls_condition, rs_condition))
+    if source == "LS":
+        query = db.query(Work).filter(ls_condition)
+    elif source == "RS":
+        query = db.query(Work).filter(rs_condition)
+    else:
+        query = db.query(Work).filter(or_(ls_condition, rs_condition))
 
     # Optional search on description or work_type (case-insensitive)
     if search and search.strip():

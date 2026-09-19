@@ -13,8 +13,21 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     ALLOWED_EMAIL_DOMAIN: str = "gmail.com"
     XP_PER_APPROVAL: int = 150
+    XP_PER_COMPLAINT: int = 50
+    MAX_PENDING_COMPLAINTS: int = 3
     MAX_UPLOAD_MB: int = 8
     GEOJSON_PATH: str = "data/lok_sabha_constituencies.geojson"
+    ADMIN_ID: str = "civicquest-admin@gov.in"
+    ADMIN_PASSWORD: str = "admin@gov"
+    INVITE_EXPIRE_HOURS: int = 48
+    OTP_EXPIRE_MINUTES: int = 5
+    OTP_MAX_ATTEMPTS: int = 5
+    RESET_REQUESTS_PER_DAY: int = 2
+    LOGIN_MAX_ATTEMPTS: int = 5
+    LOGIN_LOCK_MINUTES: int = 15
+    LEGACY_OTP_LOGIN_ENABLED: bool = False
+    LOCATION_CHANGE_DAYS: int = 30
+    BUILTIN_AUDITOR_ENABLED: bool = True
 
     model_config = SettingsConfigDict(
         env_file=(".env", "backend/.env"),
