@@ -16,6 +16,7 @@ from app.models import Auditor, Complaint, User
 from app.schemas import ComplaintResponse, ComplaintsListResponse
 from app.security import get_current_user
 from app.services.normalize import normalize_place
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/complaints", tags=["complaints"])
 
@@ -95,18 +96,18 @@ async def create_complaint(
             detail="Uploaded file is not a valid image.",
         )
 
-    # 7. Save to backend/uploads/complaints/ with random UUID filename
-    complaints_upload_dir = (
-        Path(__file__).resolve().parent.parent.parent / "uploads" / "complaints"
-    )
-    complaints_upload_dir.mkdir(parents=True, exist_ok=True)
-
+    # 7. Save using storage abstraction (local disk or S3)
     random_filename = f"{uuid.uuid4().hex}{save_ext}"
-    target_path = complaints_upload_dir / random_filename
-    with open(target_path, "wb") as f:
-        f.write(contents)
-
-    relative_path = f"uploads/complaints/{random_filename}"
+    content_type = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(
+        img.format, "image/jpeg"
+    )
+    storage = get_storage()
+    relative_path = storage.save(
+        file_bytes=contents,
+        filename=random_filename,
+        folder="complaints",
+        content_type=content_type,
+    )
 
     # 8. Create complaint record (location copied + normalized snapshot at time of complaint)
     complaint = Complaint(
@@ -191,11 +192,5 @@ def get_complaint_image(
                         detail="Complaint not found",
                     )
 
-    file_path = Path(__file__).resolve().parent.parent.parent / complaint.image_path
-    if not file_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Image file not found",
-        )
-
-    return FileResponse(file_path)
+    storage = get_storage()
+    return storage.get_file_response(complaint.image_path)

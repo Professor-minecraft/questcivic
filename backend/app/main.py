@@ -38,6 +38,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="MPLADS Work Verification Portal", lifespan=lifespan)
 
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
 # CORS configuration: parses comma-separated FRONTEND_ORIGIN, localhost allowed only in development
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +49,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve local uploads directly if storage is local or backward-compatible local files exist
+uploads_dir = Path(__file__).resolve().parent.parent / "uploads"
+uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 # Routers
 app.include_router(auth_router)

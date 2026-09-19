@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     LOCATION_CHANGE_DAYS: int = 30
     BUILTIN_AUDITOR_ENABLED: bool = True
 
+    # Storage abstraction settings ("local" or "s3")
+    STORAGE_BACKEND: str = "local"
+    S3_ENDPOINT_URL: str = ""
+    S3_BUCKET: str = ""
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_REGION: str = "us-east-1"
+    S3_PUBLIC_BASE_URL: str = ""
+
     model_config = SettingsConfigDict(
         env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",
@@ -106,6 +115,18 @@ class Settings(BaseSettings):
                     "In production, AUDITOR_PASSWORD must be set, at least 12 characters long, "
                     "and not equal to the default/example value."
                 )
+
+            # Validate S3 configuration if STORAGE_BACKEND is s3
+            if self.STORAGE_BACKEND.lower() == "s3":
+                missing = []
+                for field in ("S3_ENDPOINT_URL", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_PUBLIC_BASE_URL"):
+                    val = getattr(self, field, "")
+                    if not val or "CHANGE_ME" in val:
+                        missing.append(field)
+                if missing:
+                    raise ValueError(
+                        f"In production with STORAGE_BACKEND=s3, the following S3 variables must be set: {', '.join(missing)}"
+                    )
         return self
 
 

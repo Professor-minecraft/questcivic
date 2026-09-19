@@ -29,6 +29,11 @@ export default function AdminSubmissionCard({ submission }) {
     let objectUrl = null;
 
     async function loadImage() {
+      if (submission?.image_path && (submission.image_path.startsWith('http://') || submission.image_path.startsWith('https://'))) {
+        setImageSrc(submission.image_path);
+        setImageLoading(false);
+        return;
+      }
       try {
         setImageLoading(true);
         setImageFailed(false);
@@ -56,7 +61,7 @@ export default function AdminSubmissionCard({ submission }) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [submission.id]);
+  }, [submission.id, submission?.image_path]);
 
   const statusColor =
     submission.status === 'approved'

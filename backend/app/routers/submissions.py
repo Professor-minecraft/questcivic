@@ -14,6 +14,7 @@ from app.schemas import SubmissionResponse
 from app.security import get_current_user
 from app.services.csv_loader import normalize_text
 from app.services.normalize import normalize_place
+from app.services.storage import get_storage
 
 router = APIRouter(tags=["submissions"])
 
@@ -116,16 +117,18 @@ async def create_submission(
             detail="Uploaded file is not a valid image.",
         )
 
-    # 7. Save to backend/uploads/ with random UUID filename
-    uploads_dir = Path(__file__).resolve().parent.parent.parent / "uploads"
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-
+    # 7. Save using storage abstraction (local disk or S3)
     random_filename = f"{uuid.uuid4().hex}{save_ext}"
-    target_path = uploads_dir / random_filename
-    with open(target_path, "wb") as f:
-        f.write(contents)
-
-    relative_path = f"uploads/{random_filename}"
+    content_type = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(
+        img.format, "image/jpeg"
+    )
+    storage = get_storage()
+    relative_path = storage.save(
+        file_bytes=contents,
+        filename=random_filename,
+        folder="",
+        content_type=content_type,
+    )
 
     # 8. Create submission record (with location snapshot)
     submission = Submission(

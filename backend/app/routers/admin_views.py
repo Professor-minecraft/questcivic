@@ -11,6 +11,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import Auditor, Complaint, ReviewLog, Submission, User, Work
 from app.security import require_admin
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/admin", tags=["admin-views"])
 
@@ -474,14 +475,8 @@ def get_admin_submission_image(
             detail="Submission not found",
         )
 
-    file_path = Path(__file__).resolve().parent.parent.parent / sub.image_path
-    if not file_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Image file not found",
-        )
-
-    return FileResponse(file_path)
+    storage = get_storage()
+    return storage.get_file_response(sub.image_path)
 
 
 # 5) GET /admin/complaints?status=all|pending|accepted|rejected&user_id=
@@ -560,14 +555,8 @@ def get_admin_complaint_image(
             detail="Complaint not found",
         )
 
-    file_path = Path(__file__).resolve().parent.parent.parent / complaint.image_path
-    if not file_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Image file not found",
-        )
-
-    return FileResponse(file_path)
+    storage = get_storage()
+    return storage.get_file_response(complaint.image_path)
 
 
 # 7) GET /admin/auditors

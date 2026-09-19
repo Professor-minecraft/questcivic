@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import PhotoViewer from './PhotoViewer';
+import { getImageUrl } from '../utils/imageUrl';
 
 function formatINR(val) {
   if (val === null || val === undefined || isNaN(val)) return 'Not specified';
@@ -26,10 +29,12 @@ function formatDate(val) {
 }
 
 export default function SubmissionCard({ item }) {
+  const [viewerOpen, setViewerOpen] = useState(false);
   if (!item) return null;
 
   const isApproved = item.status === 'approved';
   const isRejected = item.status === 'rejected';
+  const imageUrl = getImageUrl(item.image_path);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow relative">
@@ -85,6 +90,40 @@ export default function SubmissionCard({ item }) {
       <p className="text-sm text-slate-600 mb-4 line-clamp-3 leading-relaxed">
         {item.description || 'No detailed description recorded.'}
       </p>
+
+      {/* Uploaded Verification Photo */}
+      {imageUrl && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => setViewerOpen(true)}
+            className="group relative inline-flex items-center justify-center h-28 w-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+            aria-label="View uploaded photo"
+          >
+            <img
+              src={imageUrl}
+              alt="Verification submission photo"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            />
+            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <span>View photo</span>
+            </div>
+          </button>
+          {viewerOpen && (
+            <PhotoViewer
+              src={imageUrl}
+              filename={`submission-${item.submission_id}`}
+              title={`Verification Photo #${item.submission_id}`}
+              alt={`Verification Photo #${item.submission_id}`}
+              onClose={() => setViewerOpen(false)}
+            />
+          )}
+        </div>
+      )}
 
       {/* Metadata Grid */}
       <div className="pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-600">

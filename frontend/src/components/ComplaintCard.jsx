@@ -28,6 +28,11 @@ export default function ComplaintCard({ item }) {
 
     async function fetchImage() {
       if (!item?.id) return;
+      if (item?.image_path && (item.image_path.startsWith('http://') || item.image_path.startsWith('https://'))) {
+        setImageUrl(item.image_path);
+        setLoadingImage(false);
+        return;
+      }
       try {
         setLoadingImage(true);
         setImageError(false);
@@ -58,7 +63,7 @@ export default function ComplaintCard({ item }) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [item?.id]);
+  }, [item?.id, item?.image_path]);
 
   if (!item) return null;
 

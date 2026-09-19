@@ -38,6 +38,11 @@ export default function AuditorComplaintCard({ item, activeTab, onActionSuccess 
     let objectUrl = null;
 
     async function loadPhoto() {
+      if (item?.image_path && (item.image_path.startsWith('http://') || item.image_path.startsWith('https://'))) {
+        setPhotoSrc(item.image_path);
+        setLoadingPhoto(false);
+        return;
+      }
       try {
         setLoadingPhoto(true);
         setPhotoFailed(false);
@@ -65,7 +70,7 @@ export default function AuditorComplaintCard({ item, activeTab, onActionSuccess 
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [item?.id]);
+  }, [item?.id, item?.image_path]);
 
   if (!item) return null;
 

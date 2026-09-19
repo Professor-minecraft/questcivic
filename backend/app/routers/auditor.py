@@ -16,6 +16,7 @@ from app.schemas import (
 )
 from app.security import require_auditor
 from app.services.normalize import normalize_place
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/auditor", tags=["auditor"])
 
@@ -122,14 +123,8 @@ def get_submission_image(
             detail="Submission not found",
         )
 
-    file_path = Path(__file__).resolve().parent.parent.parent / sub.image_path
-    if not file_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Image file not found",
-        )
-
-    return FileResponse(file_path)
+    storage = get_storage()
+    return storage.get_file_response(sub.image_path)
 
 
 @router.post("/submissions/{id}/approve", response_model=SubmissionResponse)

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { getImageUrl } from '../utils/imageUrl';
 
 /**
  * Downloads a photo blob URL with an appropriate extension determined by its MIME type.
@@ -11,7 +12,8 @@ import { createPortal } from 'react-dom';
  * Does NOT revoke the provided src blob URL.
  */
 export async function downloadPhoto(src, filename) {
-  const res = await fetch(src);
+  const resolvedSrc = getImageUrl(src) || src;
+  const res = await fetch(resolvedSrc);
   if (!res.ok) {
     throw new Error(`Failed to fetch blob: ${res.statusText}`);
   }
@@ -165,7 +167,7 @@ export default function PhotoViewer({ src, filename, title, alt, onClose }) {
         onClick={onClose}
       >
         <img
-          src={src}
+          src={getImageUrl(src) || src}
           alt={alt || title || 'Photo'}
           className="max-w-full max-h-full object-contain pointer-events-auto"
           onClick={(e) => e.stopPropagation()}

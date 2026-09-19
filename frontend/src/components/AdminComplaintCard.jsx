@@ -29,6 +29,11 @@ export default function AdminComplaintCard({ complaint }) {
     let objectUrl = null;
 
     async function loadImage() {
+      if (complaint?.image_path && (complaint.image_path.startsWith('http://') || complaint.image_path.startsWith('https://'))) {
+        setImageSrc(complaint.image_path);
+        setImageLoading(false);
+        return;
+      }
       try {
         setImageLoading(true);
         setImageFailed(false);
@@ -56,7 +61,7 @@ export default function AdminComplaintCard({ complaint }) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [complaint.id]);
+  }, [complaint.id, complaint?.image_path]);
 
   const statusColor =
     complaint.status === 'accepted'
